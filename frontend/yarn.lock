@@ -3580,6 +3580,11 @@ expo-router@*, expo-router@~6.0.22:
     use-latest-callback "^0.2.1"
     vaul "^1.1.2"
 
+expo-secure-store@~15.0.8:
+  version "15.0.8"
+  resolved "https://registry.npmjs.org/expo-secure-store/-/expo-secure-store-15.0.8.tgz"
+  integrity sha512-lHnzvRajBu4u+P99+0GEMijQMFCOYpWRO4dWsXSuMt77+THPIGjzNvVKrGSl6mMrLsfVaKL8BpwYZLGlgA+zAw==
+
 expo-server@^1.0.5:
   version "1.0.5"
   resolved "https://registry.npmjs.org/expo-server/-/expo-server-1.0.5.tgz"

@@ -16,6 +16,7 @@ import {
   FlatList,
   Settings,
 } from 'react-native';
+import * as SecureStore from 'expo-secure-store';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import axios from 'axios';
@@ -186,9 +187,22 @@ export default function Index() {
     setRefreshing(false);
   }, [location, fuelCategory, gasGrade, getLocation, fetchStations]);
 
-  // Check if user has already accepted the legal disclaimer
+  // Check if user has already accepted the legal disclaimer.
+  // NSUserDefaults (Settings) clears on app deletion; Keychain (SecureStore) does not.
+  // We use Settings as a fresh-install detector to clear any stale Keychain data.
   useEffect(() => {
-    setHasAcceptedLegal(Settings.get('legal_accepted') === true);
+    const isInstalled = Settings.get('app_installed');
+    if (!isInstalled) {
+      // Fresh install or reinstall — wipe stale Keychain entry and show legal
+      Settings.set({ app_installed: true });
+      SecureStore.deleteItemAsync('legal_accepted').finally(() => {
+        setHasAcceptedLegal(false);
+      });
+    } else {
+      SecureStore.getItemAsync('legal_accepted')
+        .then((value) => setHasAcceptedLegal(value === 'true'))
+        .catch(() => setHasAcceptedLegal(false));
+    }
   }, []);
 
   // Initial load
@@ -227,41 +241,32 @@ export default function Index() {
     setRefreshing(false);
   }, [fuelCategory, gasGrade, getLocation, fetchStations]);
 
-  // Open navigation to station
-  const openNavigation = (station: GasStation) => {
+  // Open navigation to station — tries Google Maps, then Waze, then Apple Maps
+  const openNavigation = async (station: GasStation) => {
     const { latitude, longitude, name } = station;
     const label = encodeURIComponent(name);
-    
-    let url = '';
-    
-    if (Platform.OS === 'ios') {
-      // Apple Maps
-      url = `maps://app?daddr=${latitude},${longitude}&q=${label}`;
-    } else if (Platform.OS === 'android') {
-      // Google Maps
-      url = `google.navigation:q=${latitude},${longitude}`;
-    } else {
-      // Web - open Google Maps
-      url = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}&destination_place_id=${station.place_id}`;
-    }
-    
-    Linking.canOpenURL(url).then((supported) => {
-      if (supported) {
-        Linking.openURL(url);
+
+    const googleMapsUrl = `comgooglemaps://?daddr=${latitude},${longitude}&directionsmode=driving`;
+    const wazeUrl = `waze://?ll=${latitude},${longitude}&navigate=yes`;
+    const appleMapsUrl = `maps://app?daddr=${latitude},${longitude}&q=${label}`;
+
+    try {
+      if (await Linking.canOpenURL(googleMapsUrl)) {
+        Linking.openURL(googleMapsUrl);
+      } else if (await Linking.canOpenURL(wazeUrl)) {
+        Linking.openURL(wazeUrl);
       } else {
-        // Fallback to Google Maps web URL
-        const webUrl = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`;
-        Linking.openURL(webUrl);
+        Linking.openURL(appleMapsUrl);
       }
-    }).catch((err) => {
+    } catch (err) {
       console.error('Navigation error:', err);
       Alert.alert('Error', 'Unable to open navigation app');
-    });
+    }
   };
 
   // Accept legal agreement → persist so it never shows again, then show paywall
   const handleAcceptLegal = () => {
-    Settings.set({ legal_accepted: true });
+    SecureStore.setItemAsync('legal_accepted', 'true');
     setHasAcceptedLegal(true);
     setShowPaywall(true);
   };
