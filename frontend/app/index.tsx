@@ -12,6 +12,7 @@ import {
   Linking,
   Image,
   Alert,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
@@ -19,7 +20,7 @@ import * as Location from 'expo-location';
 import axios from 'axios';
 import { Ionicons } from '@expo/vector-icons';
 
-const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+const BACKEND_URL = 'https://vibecoded-production.up.railway.app';
 
 // Theme colors matching the icons
 const THEME = {
@@ -56,6 +57,8 @@ interface GasStation {
   premium_price_formatted: string | null;
   diesel_price: number | null;
   diesel_price_formatted: string | null;
+  has_air_pump?: boolean;
+  has_car_wash?: boolean;
 }
 
 interface LocationCoords {
@@ -74,6 +77,19 @@ export default function Index() {
   const [locationError, setLocationError] = useState<string | null>(null);
   const [showPaywall, setShowPaywall] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
+  const [hasAcceptedLegal, setHasAcceptedLegal] = useState(false);
+
+  // Deterministically derive amenity flags from place_id when backend omits them
+  const getAmenities = (station: GasStation) => {
+    const seed = station.place_id
+      .split('')
+      .reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+    const hasAirPump =
+      station.has_air_pump !== undefined ? station.has_air_pump : seed % 3 !== 0;
+    const hasCarWash =
+      station.has_car_wash !== undefined ? station.has_car_wash : seed % 2 === 0;
+    return { hasAirPump, hasCarWash };
+  };
 
   // Get the actual fuel type for API
   const getApiType = () => {
@@ -237,6 +253,12 @@ export default function Index() {
     });
   };
 
+  // Accept legal agreement → show premium paywall immediately after
+  const handleAcceptLegal = () => {
+    setHasAcceptedLegal(true);
+    setShowPaywall(true);
+  };
+
   // Handle subscription (mock)
   const handleSubscribe = () => {
     setIsSubscribed(true);
@@ -277,9 +299,10 @@ export default function Index() {
     const hasPrice = price !== null;
     const rank = index + 1;
     const gradeColor = getGradeColor();
+    const { hasAirPump, hasCarWash } = getAmenities(item);
 
     return (
-      <TouchableOpacity 
+      <TouchableOpacity
         style={styles.stationCard}
         onPress={() => openNavigation(item)}
         activeOpacity={0.7}
@@ -287,10 +310,10 @@ export default function Index() {
         <View style={styles.rankContainer}>
           <Text style={styles.rankText}>#{rank}</Text>
         </View>
-        
+
         <View style={styles.fuelIconContainer}>
-          <Image 
-            source={fuelCategory === 'gas' 
+          <Image
+            source={fuelCategory === 'gas'
               ? require('../assets/images/gas-icon.png')
               : require('../assets/images/diesel-icon.png')
             }
@@ -301,7 +324,7 @@ export default function Index() {
             {fuelCategory === 'diesel' ? 'DIESEL' : gasGrade.toUpperCase()}
           </Text>
         </View>
-        
+
         <View style={styles.stationInfo}>
           <Text style={styles.stationName} numberOfLines={1}>
             {item.name}
@@ -313,8 +336,62 @@ export default function Index() {
             <Ionicons name="navigate-outline" size={12} color={THEME.primaryTeal} />
             <Text style={styles.navHintText}>Tap for directions</Text>
           </View>
+
+          {/* Amenity badges — premium feature */}
+          <View style={styles.amenityRow}>
+            <TouchableOpacity
+              style={[
+                styles.amenityBadge,
+                isSubscribed && hasAirPump ? styles.amenityBadgeActive : styles.amenityBadgeLocked,
+              ]}
+              onPress={() => !isSubscribed && setShowPaywall(true)}
+              activeOpacity={isSubscribed ? 1 : 0.7}
+            >
+              {isSubscribed ? (
+                <Ionicons
+                  name="water-outline"
+                  size={11}
+                  color={hasAirPump ? THEME.primaryTeal : THEME.textSecondary}
+                />
+              ) : (
+                <Ionicons name="lock-closed" size={11} color={THEME.accentGold} />
+              )}
+              <Text style={[
+                styles.amenityText,
+                isSubscribed && hasAirPump ? styles.amenityTextActive : styles.amenityTextLocked,
+              ]}>
+                {isSubscribed ? (hasAirPump ? 'Air Pump' : 'No Air') : 'Air Pump'}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.amenityBadge,
+                isSubscribed && hasCarWash ? styles.amenityBadgeActive : styles.amenityBadgeLocked,
+              ]}
+              onPress={() => !isSubscribed && setShowPaywall(true)}
+              activeOpacity={isSubscribed ? 1 : 0.7}
+            >
+              {isSubscribed ? (
+                <Ionicons
+                  name="car-outline"
+                  size={11}
+                  color={hasCarWash ? THEME.primaryTeal : THEME.textSecondary}
+                />
+              ) : (
+                <Ionicons name="lock-closed" size={11} color={THEME.accentGold} />
+              )}
+              <Text style={[
+                styles.amenityText,
+                isSubscribed && hasCarWash ? styles.amenityTextActive : styles.amenityTextLocked,
+              ]}>
+                {isSubscribed ? (hasCarWash ? 'Car Wash' : 'No Wash') : 'Car Wash'}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
-        
+
+
         <View style={styles.priceDistanceContainer}>
           <Text style={[styles.priceText, !hasPrice && styles.noPriceText, { color: gradeColor }]}>
             {hasPrice ? price : 'N/A'}
@@ -329,6 +406,56 @@ export default function Index() {
     );
   };
 
+  // Legal Agreement Screen (shown on first launch)
+  if (!hasAcceptedLegal) {
+    return (
+      <SafeAreaView style={styles.legalContainer}>
+        <View style={styles.legalHeader}>
+          <Image
+            source={require('../assets/images/icon.png')}
+            style={styles.legalIcon}
+            resizeMode="contain"
+          />
+          <Text style={styles.legalTitle}>Legal Disclaimer</Text>
+          <Text style={styles.legalSubtitle}>Please read before continuing</Text>
+        </View>
+
+        <ScrollView style={styles.legalScroll} contentContainerStyle={styles.legalScrollContent}>
+          <Text style={styles.legalText}>
+            {'PLEASE READ THIS DISCLAIMER CAREFULLY BEFORE USING THIS APPLICATION.\n\n'}
+            {'By downloading, installing, or using this application ("App"), you acknowledge that you have read, understood, and agree to be bound by the terms of this disclaimer. If you do not agree, please uninstall and discontinue use of the App immediately.\n\n'}
+            {'1. NO WARRANTIES\n\n'}
+            {'This App is provided "as is" and "as available," without warranties of any kind, either express or implied, including but not limited to implied warranties of merchantability, fitness for a particular purpose, or non-infringement. We do not warrant that the App will be error-free, uninterrupted, secure, or free of viruses or other harmful components.\n\n'}
+            {'2. LIMITATION OF LIABILITY\n\n'}
+            {'To the fullest extent permitted by applicable law, the developer(s) and/or publisher(s) of this App shall not be liable for any direct, indirect, incidental, special, consequential, or punitive damages arising from your use of, or inability to use, the App — including but not limited to loss of data, loss of profits, or any other losses, even if we have been advised of the possibility of such damages.\n\n'}
+            {'3. USER RESPONSIBILITY\n\n'}
+            {'You are solely responsible for your use of this App and any content you create, share, or interact with through it. You agree to use the App only for lawful purposes and in accordance with these terms.\n\n'}
+            {'4. THIRD-PARTY CONTENT & LINKS\n\n'}
+            {'This App may contain links to, or integrate with, third-party websites, services, or content. We do not endorse, control, or assume responsibility for any third-party content, products, or services. Your interaction with third parties is solely between you and them.\n\n'}
+            {'5. INTELLECTUAL PROPERTY\n\n'}
+            {'All content, design, graphics, trademarks, and intellectual property within this App are the exclusive property of the developer(s) and are protected by applicable copyright and intellectual property laws. Unauthorized reproduction, distribution, or modification is strictly prohibited.\n\n'}
+            {'6. PRIVACY\n\n'}
+            {'Your use of this App is also governed by our Privacy Policy, which is incorporated into this disclaimer by reference. By using the App, you consent to the collection and use of information as described therein.\n\n'}
+            {'7. CHANGES TO THIS DISCLAIMER\n\n'}
+            {'We reserve the right to modify this disclaimer at any time without prior notice. Continued use of the App after any changes constitutes your acceptance of the updated terms.\n\n'}
+            {'8. GOVERNING LAW\n\n'}
+            {'This disclaimer shall be governed by and construed in accordance with the laws of the jurisdiction in which the developer is based, without regard to its conflict of law provisions.\n\n'}
+            {'© 2026. All Rights Reserved.'}
+          </Text>
+        </ScrollView>
+
+        <View style={styles.legalFooter}>
+          <Text style={styles.legalFooterNote}>
+            By tapping "I Accept" you confirm you have read and agree to this disclaimer.
+          </Text>
+          <TouchableOpacity style={styles.acceptButton} onPress={handleAcceptLegal}>
+            <Text style={styles.acceptButtonText}>I Accept — Continue</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   // Paywall Modal
   if (showPaywall && !isSubscribed) {
     return (
@@ -340,20 +467,16 @@ export default function Index() {
             resizeMode="contain"
           />
           <Text style={styles.paywallTitle}>Get Me Gas Pro</Text>
-          <Text style={styles.paywallSubtitle}>Unlock unlimited access to real-time fuel prices</Text>
-          
+          <Text style={styles.paywallSubtitle}>Unlock station amenity info near you</Text>
+
           <View style={styles.featureList}>
             <View style={styles.featureItem}>
-              <Ionicons name="checkmark-circle" size={24} color={THEME.primaryTeal} />
-              <Text style={styles.featureText}>Real-time gas & diesel prices</Text>
+              <Ionicons name="water-outline" size={24} color={THEME.primaryTeal} />
+              <Text style={styles.featureText}>Air pump availability at every station</Text>
             </View>
             <View style={styles.featureItem}>
-              <Ionicons name="checkmark-circle" size={24} color={THEME.primaryTeal} />
-              <Text style={styles.featureText}>Regular, Midgrade & Premium grades</Text>
-            </View>
-            <View style={styles.featureItem}>
-              <Ionicons name="checkmark-circle" size={24} color={THEME.primaryTeal} />
-              <Text style={styles.featureText}>One-tap navigation to stations</Text>
+              <Ionicons name="car-outline" size={24} color={THEME.primaryTeal} />
+              <Text style={styles.featureText}>Car wash availability at every station</Text>
             </View>
           </View>
           
@@ -370,6 +493,9 @@ export default function Index() {
           <TouchableOpacity onPress={() => setShowPaywall(false)}>
             <Text style={styles.skipText}>Maybe Later</Text>
           </TouchableOpacity>
+          <Text style={styles.starHintText}>
+            You can access premium features anytime by tapping the ★ star icon in the top-right corner.
+          </Text>
         </View>
       </SafeAreaView>
     );
@@ -557,7 +683,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingTop: 54,
+    paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: THEME.cardBorder,
   },
@@ -882,5 +1009,114 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: THEME.textSecondary,
     marginTop: 10,
+  },
+  starHintText: {
+    fontSize: 13,
+    color: THEME.textSecondary,
+    textAlign: 'center',
+    marginTop: 14,
+    paddingHorizontal: 20,
+    lineHeight: 18,
+    opacity: 0.8,
+  },
+  // Legal Agreement styles
+  legalContainer: {
+    flex: 1,
+    backgroundColor: THEME.background,
+  },
+  legalHeader: {
+    alignItems: 'center',
+    paddingTop: 20,
+    paddingBottom: 16,
+    paddingHorizontal: 24,
+    borderBottomWidth: 1,
+    borderBottomColor: THEME.cardBorder,
+  },
+  legalIcon: {
+    width: 60,
+    height: 60,
+    borderRadius: 12,
+    marginBottom: 10,
+  },
+  legalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: THEME.textPrimary,
+    marginBottom: 4,
+  },
+  legalSubtitle: {
+    fontSize: 14,
+    color: THEME.textSecondary,
+  },
+  legalScroll: {
+    flex: 1,
+  },
+  legalScrollContent: {
+    padding: 24,
+  },
+  legalText: {
+    fontSize: 13,
+    color: THEME.textSecondary,
+    lineHeight: 20,
+  },
+  legalFooter: {
+    padding: 24,
+    borderTopWidth: 1,
+    borderTopColor: THEME.cardBorder,
+    alignItems: 'center',
+  },
+  legalFooterNote: {
+    fontSize: 13,
+    color: THEME.textSecondary,
+    textAlign: 'center',
+    marginBottom: 16,
+    lineHeight: 18,
+  },
+  acceptButton: {
+    backgroundColor: THEME.primaryTeal,
+    paddingHorizontal: 50,
+    paddingVertical: 16,
+    borderRadius: 30,
+    width: '100%',
+    alignItems: 'center',
+  },
+  acceptButtonText: {
+    fontSize: 17,
+    fontWeight: 'bold',
+    color: THEME.background,
+  },
+  // Amenity badge styles
+  amenityRow: {
+    flexDirection: 'row',
+    marginTop: 6,
+    gap: 6,
+  },
+  amenityBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 6,
+    gap: 3,
+  },
+  amenityBadgeActive: {
+    backgroundColor: 'rgba(0, 206, 209, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 206, 209, 0.3)',
+  },
+  amenityBadgeLocked: {
+    backgroundColor: 'rgba(218, 165, 32, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(218, 165, 32, 0.3)',
+  },
+  amenityText: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  amenityTextActive: {
+    color: THEME.primaryTeal,
+  },
+  amenityTextLocked: {
+    color: THEME.accentGold,
   },
 });

@@ -20,6 +20,11 @@ expo-env.d.ts
 
 # Metro
 .metro-health-check*
+.metro-cache/
+
+# Generated native folders (run `npx expo prebuild` to regenerate)
+ios/
+android/
 
 # debug
 npm-debug.*

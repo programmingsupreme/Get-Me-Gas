@@ -1,0 +1,28 @@
+diff --git a/node_modules/@capacitor/ios/Capacitor/Capacitor/CAPPlugin.m b/node_modules/@capacitor/ios/Capacitor/Capacitor/CAPPlugin.m
+index 4ce7e5b..18d7c9a 100644
+--- a/node_modules/@capacitor/ios/Capacitor/Capacitor/CAPPlugin.m
++++ b/node_modules/@capacitor/ios/Capacitor/Capacitor/CAPPlugin.m
+@@ -6,13 +6,16 @@
+ @implementation CAPPlugin
+ 
+ -(instancetype) initWithBridge:(id<CAPBridgeProtocol>)bridge pluginId:(NSString *)pluginId pluginName:(NSString *)pluginName {
+-  self.bridge = bridge;
+-  self.webView = bridge.webView;
+-  self.pluginId = pluginId;
+-  self.pluginName = pluginName;
+-  self.eventListeners = [[NSMutableDictionary alloc] init];
+-  self.retainedEventArguments = [[NSMutableDictionary alloc] init];
+-  self.shouldStringifyDatesInCalls = true;
++  self = [super init];
++  if (self) {
++    self.bridge = bridge;
++    self.webView = bridge.webView;
++    self.pluginId = pluginId;
++    self.pluginName = pluginName;
++    self.eventListeners = [[NSMutableDictionary alloc] init];
++    self.retainedEventArguments = [[NSMutableDictionary alloc] init];
++    self.shouldStringifyDatesInCalls = true;
++  }
+   return self;
+ }
+ 
