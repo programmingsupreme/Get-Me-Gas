@@ -502,7 +502,7 @@ export default function Index() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
@@ -683,8 +683,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 54,
-    paddingBottom: 16,
+    paddingTop: 0,
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: THEME.cardBorder,
   },
