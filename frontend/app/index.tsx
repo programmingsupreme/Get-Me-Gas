@@ -13,9 +13,9 @@ import {
   Image,
   Alert,
   ScrollView,
+  FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { FlashList } from '@shopify/flash-list';
 import * as Location from 'expo-location';
 import axios from 'axios';
 import { Ionicons } from '@expo/vector-icons';
@@ -320,8 +320,8 @@ export default function Index() {
             style={styles.fuelIcon}
             resizeMode="contain"
           />
-          <Text style={[styles.fuelTypeLabel, { color: gradeColor }]}>
-            {fuelCategory === 'diesel' ? 'DIESEL' : gasGrade.toUpperCase()}
+          <Text style={[styles.fuelTypeLabel, { color: gradeColor }]} numberOfLines={1}>
+            {fuelCategory === 'diesel' ? 'DIESEL' : gasGrade === 'midgrade' ? 'MID' : gasGrade.toUpperCase()}
           </Text>
         </View>
 
@@ -479,19 +479,19 @@ export default function Index() {
               <Text style={styles.featureText}>Car wash availability at every station</Text>
             </View>
           </View>
-          
+
           <View style={styles.priceBox}>
-            <Text style={styles.trialText}>1 WEEK FREE TRIAL</Text>
-            <Text style={styles.subscriptionPrice}>$5.99/week</Text>
-            <Text style={styles.cancelText}>Cancel anytime</Text>
+            <Ionicons name="heart-outline" size={22} color={THEME.primaryTeal} />
+            <Text style={styles.trialText}>BUILT BY A STUDENT</Text>
+            <Text style={styles.cancelText}>This app was made by a student developer. If you find it useful, consider leaving a small donation — it helps keep the project alive!</Text>
           </View>
-          
+
           <TouchableOpacity style={styles.subscribeButton} onPress={handleSubscribe}>
-            <Text style={styles.subscribeButtonText}>Start Free Trial</Text>
+            <Text style={styles.subscribeButtonText}>Support with a Donation ❤️</Text>
           </TouchableOpacity>
-          
+
           <TouchableOpacity onPress={() => setShowPaywall(false)}>
-            <Text style={styles.skipText}>Maybe Later</Text>
+            <Text style={styles.skipText}>No thanks, unlock for free</Text>
           </TouchableOpacity>
           <Text style={styles.starHintText}>
             You can access premium features anytime by tapping the ★ star icon in the top-right corner.
@@ -648,10 +648,9 @@ export default function Index() {
           </TouchableOpacity>
         </View>
       ) : (
-        <FlashList
+        <FlatList
           data={stations}
           renderItem={renderStation}
-          estimatedItemSize={100}
           keyExtractor={(item) => item.place_id}
           contentContainerStyle={styles.listContainer}
           refreshControl={
