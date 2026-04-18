@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import {
   Alert,
   ScrollView,
   FlatList,
+  Settings,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
@@ -77,7 +78,7 @@ export default function Index() {
   const [locationError, setLocationError] = useState<string | null>(null);
   const [showPaywall, setShowPaywall] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
-  const [hasAcceptedLegal, setHasAcceptedLegal] = useState(false);
+  const [hasAcceptedLegal, setHasAcceptedLegal] = useState<boolean | null>(null);
 
   // Deterministically derive amenity flags from place_id when backend omits them
   const getAmenities = (station: GasStation) => {
@@ -185,6 +186,11 @@ export default function Index() {
     setRefreshing(false);
   }, [location, fuelCategory, gasGrade, getLocation, fetchStations]);
 
+  // Check if user has already accepted the legal disclaimer
+  useEffect(() => {
+    setHasAcceptedLegal(Settings.get('legal_accepted') === true);
+  }, []);
+
   // Initial load
   useEffect(() => {
     loadData();
@@ -253,8 +259,9 @@ export default function Index() {
     });
   };
 
-  // Accept legal agreement → show premium paywall immediately after
+  // Accept legal agreement → persist so it never shows again, then show paywall
   const handleAcceptLegal = () => {
+    Settings.set({ legal_accepted: true });
     setHasAcceptedLegal(true);
     setShowPaywall(true);
   };
@@ -406,7 +413,10 @@ export default function Index() {
     );
   };
 
-  // Legal Agreement Screen (shown on first launch)
+  // Still reading from storage — render nothing to avoid flash
+  if (hasAcceptedLegal === null) return null;
+
+  // Legal Agreement Screen (shown on first install only)
   if (!hasAcceptedLegal) {
     return (
       <SafeAreaView style={styles.legalContainer}>
@@ -494,7 +504,7 @@ export default function Index() {
             <Text style={styles.skipText}>No thanks, unlock for free</Text>
           </TouchableOpacity>
           <Text style={styles.starHintText}>
-            You can access premium features anytime by tapping the ★ star icon in the top-right corner.
+            You can access premium features anytime by tapping the ♥ heart icon in the top-right corner.
           </Text>
         </View>
       </SafeAreaView>
@@ -513,15 +523,15 @@ export default function Index() {
           />
           <Text style={styles.headerTitle}>Get Me Gas</Text>
         </View>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.starButton}
           onPress={() => setShowPaywall(true)}
-          accessibilityLabel="Subscription"
+          accessibilityLabel="Support"
         >
-          <Ionicons 
-            name={isSubscribed ? "star" : "star-outline"} 
-            size={24} 
-            color={isSubscribed ? THEME.accentGold : THEME.textSecondary} 
+          <Ionicons
+            name={isSubscribed ? "heart" : "heart-outline"}
+            size={24}
+            color={isSubscribed ? '#FF6B6B' : THEME.textSecondary}
           />
         </TouchableOpacity>
       </View>
