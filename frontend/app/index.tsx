@@ -21,6 +21,21 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import axios from 'axios';
 import { Ionicons } from '@expo/vector-icons';
+import {
+  initConnection,
+  endConnection,
+  fetchProducts,
+  requestPurchase,
+  purchaseUpdatedListener,
+  purchaseErrorListener,
+  finishTransaction,
+} from 'expo-iap';
+
+const DONATION_PRODUCTS = [
+  { id: 'com.programmingsupreme.getmegas.donate_1', label: 'Small Tip ☕', price: '$0.99' },
+  { id: 'com.programmingsupreme.getmegas.donate_5', label: 'Big Tip 🙌', price: '$4.99' },
+  { id: 'com.programmingsupreme.getmegas.donate_10', label: "You're Amazing 🔥", price: '$9.99' },
+];
 
 const BACKEND_URL = 'https://vibecoded-production.up.railway.app';
 
@@ -80,6 +95,8 @@ export default function Index() {
   const [showPaywall, setShowPaywall] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [hasAcceptedLegal, setHasAcceptedLegal] = useState<boolean | null>(null);
+  const [products, setProducts] = useState<any[]>([]);
+  const [purchasing, setPurchasing] = useState(false);
 
   // Deterministically derive amenity flags from place_id when backend omits them
   const getAmenities = (station: GasStation) => {
@@ -217,6 +234,50 @@ export default function Index() {
     }
   }, [fuelCategory, gasGrade]);
 
+  // Initialize IAP
+  useEffect(() => {
+    let purchaseListener: any;
+    let errorListener: any;
+
+    const setupIAP = async () => {
+      try {
+        await initConnection();
+        const skus = DONATION_PRODUCTS.map(p => p.id);
+        console.log('IAP: requesting products for skus:', skus);
+        const fetchedProducts = await fetchProducts({ skus, type: 'in-app' });
+        console.log('IAP: fetched products:', JSON.stringify(fetchedProducts));
+        setProducts(fetchedProducts);
+
+        purchaseListener = purchaseUpdatedListener(async (purchase: any) => {
+          if (purchase.transactionReceipt) {
+            await finishTransaction({ purchase, isConsumable: true });
+            setIsSubscribed(true);
+            setShowPaywall(false);
+            setPurchasing(false);
+            Alert.alert('Thank you! ❤️', 'Your donation means a lot and helps keep this project alive!');
+          }
+        });
+
+        errorListener = purchaseErrorListener((error: any) => {
+          setPurchasing(false);
+          if (error.code !== 'E_USER_CANCELLED') {
+            Alert.alert('Purchase failed', error.message || 'Something went wrong. Please try again.');
+          }
+        });
+      } catch (err) {
+        console.log('IAP init error:', err);
+      }
+    };
+
+    setupIAP();
+
+    return () => {
+      purchaseListener?.remove();
+      errorListener?.remove();
+      endConnection();
+    };
+  }, []);
+
   // Handle app state changes (refresh when coming to foreground)
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
@@ -271,10 +332,31 @@ export default function Index() {
     setShowPaywall(true);
   };
 
-  // Handle subscription (mock)
-  const handleSubscribe = () => {
-    setIsSubscribed(true);
-    setShowPaywall(false);
+  // Handle real IAP donation
+  const handleDonate = async (productId: string) => {
+    if (purchasing) return;
+    setPurchasing(true);
+    try {
+      const purchase = await requestPurchase({
+        request: {
+          apple: { sku: productId },
+          google: { skus: [productId] },
+        },
+        type: 'in-app',
+      });
+      if (purchase) {
+        await finishTransaction({ purchase: purchase as any, isConsumable: true });
+        setIsSubscribed(true);
+        setShowPaywall(false);
+        Alert.alert('Thank you! ❤️', 'Your donation means a lot and helps keep this project alive!');
+      }
+    } catch (err: any) {
+      if ((err as any).code !== 'E_USER_CANCELLED') {
+        Alert.alert('Purchase failed', (err as any).message || 'Something went wrong. Please try again.');
+      }
+    } finally {
+      setPurchasing(false);
+    }
   };
 
   // Get price based on current fuel selection
@@ -501,9 +583,20 @@ export default function Index() {
             <Text style={styles.cancelText}>This app was made by a student developer. If you find it useful, consider leaving a small donation — it helps keep the project alive!</Text>
           </View>
 
-          <TouchableOpacity style={styles.subscribeButton} onPress={handleSubscribe}>
-            <Text style={styles.subscribeButtonText}>Support with a Donation ❤️</Text>
-          </TouchableOpacity>
+          {DONATION_PRODUCTS.map((product) => (
+            <TouchableOpacity
+              key={product.id}
+              style={[styles.subscribeButton, { marginBottom: 10, opacity: purchasing ? 0.6 : 1 }]}
+              onPress={() => handleDonate(product.id)}
+              disabled={purchasing}
+            >
+              {purchasing ? (
+                <ActivityIndicator color={THEME.background} />
+              ) : (
+                <Text style={styles.subscribeButtonText}>{product.label} — {product.price}</Text>
+              )}
+            </TouchableOpacity>
+          ))}
 
           <TouchableOpacity onPress={() => setShowPaywall(false)}>
             <Text style={styles.skipText}>No thanks, unlock for free</Text>
