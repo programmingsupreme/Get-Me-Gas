@@ -16,10 +16,11 @@ import math
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-# MongoDB connection
+# MongoDB connection - deferred to startup event to avoid SRV DNS issues at import time
 mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+db_name = os.environ['DB_NAME']
+client = None
+db = None
 
 # Google Places API Key - loaded from environment
 GOOGLE_PLACES_API_KEY = os.environ.get('GOOGLE_PLACES_API_KEY', '')
@@ -326,6 +327,15 @@ app.add_middleware(
 )
 
 
+@app.on_event("startup")
+async def startup_db_client():
+    global client, db
+    client = AsyncIOMotorClient(mongo_url)
+    db = client[db_name]
+    logger.info("MongoDB client connected")
+
+
 @app.on_event("shutdown")
 async def shutdown_db_client():
-    client.close()
+    if client:
+        client.close()
