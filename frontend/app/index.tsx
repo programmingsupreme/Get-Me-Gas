@@ -37,7 +37,7 @@ const DONATION_PRODUCTS = [
   { id: 'com.programmingsupreme.getmegas.donate_10', label: "You're Amazing 🔥", price: '$9.99' },
 ];
 
-const BACKEND_URL = 'https://vibecoded-production.up.railway.app';
+const BACKEND_URL = 'https://getmegas-backend-838382954071.us-central1.run.app';
 
 // Theme colors matching the icons
 const THEME = {
