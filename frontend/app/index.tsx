@@ -38,8 +38,6 @@ const DONATION_PRODUCTS = [
 ];
 
 const BACKEND_URL = 'https://getmegas-backend-838382954071.us-central1.run.app';
-const NREL_API_KEY = '2BJabIEkxESZm1LZ7s9Z7rd8t5VWD2seqAdebHvM';
-const NREL_BASE = 'https://developer.nrel.gov/api/alt-fuel-stations/v1.json';
 
 // Theme colors matching the icons
 const THEME = {
@@ -55,15 +53,10 @@ const THEME = {
   premiumColor: '#FFD700',
   midgradeColor: '#C0C0C0',
   regularColor: '#00CED1',
-  // EV level colors
-  evLevel1Color: '#7a9ab8',   // muted blue – slowest
-  evLevel2Color: '#00CED1',   // teal – moderate
-  evDcFastColor: '#FFD700',   // gold – fastest
 };
 
-type FuelCategory = 'gas' | 'diesel' | 'ev';
+type FuelCategory = 'gas' | 'diesel';
 type GasGrade = 'regular' | 'midgrade' | 'premium';
-type EvLevel = 'level1' | 'level2' | 'dc_fast';
 
 interface GasStation {
   id: string;
@@ -85,23 +78,6 @@ interface GasStation {
   has_car_wash?: boolean;
 }
 
-interface EvStation {
-  id: number;
-  station_name: string;
-  street_address: string;
-  city: string;
-  state: string;
-  zip: string;
-  ev_level1_evse_num: number | null;
-  ev_level2_evse_num: number | null;
-  ev_dc_fast_num: number | null;
-  ev_network: string | null;
-  ev_connector_types: string[] | null;
-  distance: number | null; // km from NREL
-  latitude: number;
-  longitude: number;
-}
-
 interface LocationCoords {
   latitude: number;
   longitude: number;
@@ -121,12 +97,6 @@ export default function Index() {
   const [hasAcceptedLegal, setHasAcceptedLegal] = useState<boolean | null>(null);
   const [products, setProducts] = useState<any[]>([]);
   const [purchasing, setPurchasing] = useState(false);
-
-  // EV state
-  const [evLevel, setEvLevel] = useState<EvLevel>('level2');
-  const [evStations, setEvStations] = useState<EvStation[]>([]);
-  const [evLoading, setEvLoading] = useState(false);
-  const [evError, setEvError] = useState<string | null>(null);
 
   // Deterministically derive amenity flags from place_id when backend omits them
   const getAmenities = (station: GasStation) => {
@@ -197,52 +167,6 @@ export default function Index() {
     }
   }, []);
 
-  // EV level color helper
-  const getEvLevelColor = (level: EvLevel) => {
-    switch (level) {
-      case 'level1': return THEME.evLevel1Color;
-      case 'level2': return THEME.evLevel2Color;
-      case 'dc_fast': return THEME.evDcFastColor;
-    }
-  };
-
-  // Fetch EV charging stations from NREL
-  const fetchEvStations = useCallback(async (coords: LocationCoords, level: EvLevel) => {
-    try {
-      setEvError(null);
-      setEvLoading(true);
-      // Build URL manually so the lat,lng comma is NOT percent-encoded.
-      // The NREL API requires a literal comma in the location value.
-      const levelFilter =
-        level === 'level1' ? 'ev_level1_evse_num=1' :
-        level === 'level2' ? 'ev_level2_evse_num=1' :
-        'ev_dc_fast_num=1';
-
-      const url =
-        `${NREL_BASE}?api_key=${NREL_API_KEY}` +
-        `&fuel_type=ELEC&status=E` +
-        `&location=${coords.latitude},${coords.longitude}` +
-        `&radius=10&limit=20` +
-        `&${levelFilter}`;
-
-      const response = await axios.get(url, { timeout: 20000 });
-
-      // Also filter client-side to guard against the API returning unfiltered results
-      const all = response.data.fuel_stations || [];
-      const filtered = all.filter((s: EvStation) =>
-        level === 'level1' ? (s.ev_level1_evse_num ?? 0) > 0 :
-        level === 'level2' ? (s.ev_level2_evse_num ?? 0) > 0 :
-        (s.ev_dc_fast_num ?? 0) > 0
-      );
-      setEvStations(filtered);
-    } catch (err: any) {
-      setEvError('Unable to fetch EV charging stations. Please try again.');
-      setEvStations([]);
-    } finally {
-      setEvLoading(false);
-    }
-  }, []);
-
   // Fetch stations from backend
   const fetchStations = useCallback(async (coords: LocationCoords, fuelType: string) => {
     try {
@@ -266,26 +190,19 @@ export default function Index() {
   // Load data
   const loadData = useCallback(async (showLoader = true) => {
     if (showLoader) setLoading(true);
-
+    
     let coords = location;
     if (!coords) {
       coords = await getLocation();
     }
-
+    
     if (coords) {
-      if (fuelCategory === 'ev') {
-        setLoading(false);
-        await fetchEvStations(coords, evLevel);
-      } else {
-        await fetchStations(coords, getApiType());
-        setLoading(false);
-      }
-    } else {
-      setLoading(false);
+      await fetchStations(coords, getApiType());
     }
-
+    
+    setLoading(false);
     setRefreshing(false);
-  }, [location, fuelCategory, gasGrade, evLevel, getLocation, fetchStations, fetchEvStations]);
+  }, [location, fuelCategory, gasGrade, getLocation, fetchStations]);
 
   // Check if user has already accepted the legal disclaimer.
   // NSUserDefaults (Settings) clears on app deletion; Keychain (SecureStore) does not.
@@ -310,23 +227,12 @@ export default function Index() {
     loadData();
   }, []);
 
-  // Reload when fuel type or grade changes
+  // Reload when fuel type changes
   useEffect(() => {
     if (location) {
-      if (fuelCategory === 'ev') {
-        fetchEvStations(location, evLevel);
-      } else {
-        loadData(false);
-      }
+      loadData(false);
     }
   }, [fuelCategory, gasGrade]);
-
-  // Reload EV stations when level changes
-  useEffect(() => {
-    if (location && fuelCategory === 'ev') {
-      fetchEvStations(location, evLevel);
-    }
-  }, [evLevel]);
 
   // Initialize IAP
   useEffect(() => {
@@ -388,16 +294,13 @@ export default function Index() {
   // Pull to refresh
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
+    // Get fresh location on refresh
     const coords = await getLocation();
     if (coords) {
-      if (fuelCategory === 'ev') {
-        await fetchEvStations(coords, evLevel);
-      } else {
-        await fetchStations(coords, getApiType());
-      }
+      await fetchStations(coords, getApiType());
     }
     setRefreshing(false);
-  }, [fuelCategory, gasGrade, evLevel, getLocation, fetchStations, fetchEvStations]);
+  }, [fuelCategory, gasGrade, getLocation, fetchStations]);
 
   // Open navigation to station — tries Google Maps, then Waze, then Apple Maps
   const openNavigation = async (station: GasStation) => {
@@ -482,89 +385,6 @@ export default function Index() {
       default:
         return THEME.regularColor;
     }
-  };
-
-  // Open navigation for an EV station
-  const openEvNavigation = async (station: EvStation) => {
-    const { latitude, longitude, station_name } = station;
-    const label = encodeURIComponent(station_name);
-    const googleMapsUrl = `comgooglemaps://?daddr=${latitude},${longitude}&directionsmode=driving`;
-    const wazeUrl = `waze://?ll=${latitude},${longitude}&navigate=yes`;
-    const appleMapsUrl = `maps://app?daddr=${latitude},${longitude}&q=${label}`;
-    try {
-      if (await Linking.canOpenURL(googleMapsUrl)) {
-        Linking.openURL(googleMapsUrl);
-      } else if (await Linking.canOpenURL(wazeUrl)) {
-        Linking.openURL(wazeUrl);
-      } else {
-        Linking.openURL(appleMapsUrl);
-      }
-    } catch {
-      Alert.alert('Error', 'Unable to open navigation app');
-    }
-  };
-
-  // Render an EV charging station card
-  const renderEvStation = ({ item, index }: { item: EvStation; index: number }) => {
-    const rank = index + 1;
-    const evColor = getEvLevelColor(evLevel);
-    const portCount =
-      evLevel === 'level1' ? item.ev_level1_evse_num :
-      evLevel === 'level2' ? item.ev_level2_evse_num :
-      item.ev_dc_fast_num;
-    const levelLabel = evLevel === 'level1' ? 'L1' : evLevel === 'level2' ? 'L2' : 'DC';
-    const distanceMiles = item.distance != null
-      ? (item.distance * 0.621371).toFixed(1)
-      : '?';
-
-    return (
-      <TouchableOpacity
-        style={styles.stationCard}
-        onPress={() => openEvNavigation(item)}
-        activeOpacity={0.7}
-      >
-        <View style={styles.rankContainer}>
-          <Text style={styles.rankText}>#{rank}</Text>
-        </View>
-
-        <View style={styles.fuelIconContainer}>
-          <Ionicons name="flash" size={28} color={evColor} />
-          <Text style={[styles.fuelTypeLabel, { color: evColor }]}>{levelLabel}</Text>
-        </View>
-
-        <View style={styles.stationInfo}>
-          <Text style={styles.stationName} numberOfLines={1}>{item.station_name}</Text>
-          <Text style={styles.stationAddress} numberOfLines={1}>
-            {item.street_address}, {item.city}, {item.state}
-          </Text>
-          <View style={styles.navHint}>
-            <Ionicons name="navigate-outline" size={12} color={THEME.primaryTeal} />
-            <Text style={styles.navHintText}>Tap for directions</Text>
-          </View>
-          {item.ev_network ? (
-            <View style={[styles.navHint, { marginTop: 3 }]}>
-              <Ionicons name="wifi-outline" size={12} color={THEME.textSecondary} />
-              <Text style={[styles.navHintText, { color: THEME.textSecondary }]}>
-                {item.ev_network}
-              </Text>
-            </View>
-          ) : null}
-        </View>
-
-        <View style={styles.priceDistanceContainer}>
-          <Text style={[styles.priceText, { color: evColor, fontSize: 20 }]}>
-            {portCount ?? '?'}
-          </Text>
-          <Text style={styles.perGallon}>
-            {portCount === 1 ? 'port' : 'ports'}
-          </Text>
-          <View style={styles.distanceRow}>
-            <Ionicons name="location-outline" size={14} color={THEME.textSecondary} />
-            <Text style={styles.distanceText}>{distanceMiles} mi</Text>
-          </View>
-        </View>
-      </TouchableOpacity>
-    );
   };
 
   // Render station item
@@ -736,7 +556,6 @@ export default function Index() {
   // Paywall Modal
   if (showPaywall && !isSubscribed) {
     return (
-      <View style={{ flex: 1, backgroundColor: THEME.background }}>
       <SafeAreaView style={styles.paywallContainer}>
         <View style={styles.paywallContent}>
           <Image 
@@ -774,7 +593,7 @@ export default function Index() {
               {purchasing ? (
                 <ActivityIndicator color={THEME.background} />
               ) : (
-                <Text style={styles.subscribeButtonText} numberOfLines={1} adjustsFontSizeToFit>{product.label} — {product.price}</Text>
+                <Text style={styles.subscribeButtonText}>{product.label} — {product.price}</Text>
               )}
             </TouchableOpacity>
           ))}
@@ -787,7 +606,6 @@ export default function Index() {
           </Text>
         </View>
       </SafeAreaView>
-      </View>
     );
   }
 
@@ -816,7 +634,7 @@ export default function Index() {
         </TouchableOpacity>
       </View>
 
-      {/* Main Fuel Category Toggle (Gas / Diesel / EV) */}
+      {/* Main Fuel Category Toggle (Gas/Diesel) */}
       <View style={styles.mainToggleContainer}>
         <TouchableOpacity
           style={[
@@ -825,7 +643,7 @@ export default function Index() {
           ]}
           onPress={() => setFuelCategory('gas')}
         >
-          <Image
+          <Image 
             source={require('../assets/images/gas-icon.png')}
             style={styles.toggleIcon}
             resizeMode="contain"
@@ -835,7 +653,7 @@ export default function Index() {
             fuelCategory === 'gas' && styles.mainToggleTextActive,
           ]}>Gas</Text>
         </TouchableOpacity>
-
+        
         <TouchableOpacity
           style={[
             styles.mainToggleButton,
@@ -843,7 +661,7 @@ export default function Index() {
           ]}
           onPress={() => setFuelCategory('diesel')}
         >
-          <Image
+          <Image 
             source={require('../assets/images/diesel-icon.png')}
             style={styles.toggleIcon}
             resizeMode="contain"
@@ -853,83 +671,48 @@ export default function Index() {
             fuelCategory === 'diesel' && styles.mainToggleTextActive,
           ]}>Diesel</Text>
         </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.mainToggleButton,
-            fuelCategory === 'ev' && { backgroundColor: THEME.evDcFastColor },
-          ]}
-          onPress={() => setFuelCategory('ev')}
-        >
-          <Ionicons
-            name="flash"
-            size={22}
-            color={fuelCategory === 'ev' ? THEME.background : THEME.textSecondary}
-          />
-          <Text style={[
-            styles.mainToggleText,
-            fuelCategory === 'ev' && { color: THEME.background },
-          ]}>EV</Text>
-        </TouchableOpacity>
       </View>
 
-      {/* Gas Grade Toggle (only when Gas is selected) */}
+      {/* Gas Grade Toggle (only show when gas is selected) */}
       {fuelCategory === 'gas' && (
         <View style={styles.gradeToggleContainer}>
           <TouchableOpacity
-            style={[styles.gradeToggleButton, gasGrade === 'regular' && styles.gradeToggleButtonRegular]}
+            style={[
+              styles.gradeToggleButton,
+              gasGrade === 'regular' && styles.gradeToggleButtonRegular,
+            ]}
             onPress={() => setGasGrade('regular')}
           >
-            <Text style={[styles.gradeToggleText, gasGrade === 'regular' && styles.gradeToggleTextActive]}>Regular</Text>
+            <Text style={[
+              styles.gradeToggleText,
+              gasGrade === 'regular' && styles.gradeToggleTextActive,
+            ]}>Regular</Text>
           </TouchableOpacity>
-
+          
           <TouchableOpacity
-            style={[styles.gradeToggleButton, gasGrade === 'midgrade' && styles.gradeToggleButtonMidgrade]}
+            style={[
+              styles.gradeToggleButton,
+              gasGrade === 'midgrade' && styles.gradeToggleButtonMidgrade,
+            ]}
             onPress={() => setGasGrade('midgrade')}
           >
-            <Text style={[styles.gradeToggleText, gasGrade === 'midgrade' && styles.gradeToggleTextActive]}>Midgrade</Text>
+            <Text style={[
+              styles.gradeToggleText,
+              gasGrade === 'midgrade' && styles.gradeToggleTextActive,
+            ]}>Midgrade</Text>
           </TouchableOpacity>
-
+          
           <TouchableOpacity
-            style={[styles.gradeToggleButton, gasGrade === 'premium' && styles.gradeToggleButtonPremium]}
+            style={[
+              styles.gradeToggleButton,
+              gasGrade === 'premium' && styles.gradeToggleButtonPremium,
+            ]}
             onPress={() => setGasGrade('premium')}
           >
-            <Text style={[styles.gradeToggleText, gasGrade === 'premium' && styles.gradeToggleTextActive]}>Premium</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {/* EV Level Toggle (only when EV is selected) */}
-      {fuelCategory === 'ev' && (
-        <View style={styles.gradeToggleContainer}>
-          <TouchableOpacity
-            style={[styles.gradeToggleButton, evLevel === 'level1' && { backgroundColor: THEME.evLevel1Color }]}
-            onPress={() => setEvLevel('level1')}
-          >
-            <Text style={styles.evLevelEmoji}>⚡</Text>
-            <Text style={[styles.gradeToggleText, evLevel === 'level1' && styles.gradeToggleTextActive]}>
-              Level 1
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.gradeToggleButton, evLevel === 'level2' && { backgroundColor: THEME.evLevel2Color }]}
-            onPress={() => setEvLevel('level2')}
-          >
-            <Text style={styles.evLevelEmoji}>⚡⚡</Text>
-            <Text style={[styles.gradeToggleText, evLevel === 'level2' && { color: THEME.background, fontWeight: '700' }]}>
-              Level 2
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.gradeToggleButton, evLevel === 'dc_fast' && { backgroundColor: THEME.evDcFastColor }]}
-            onPress={() => setEvLevel('dc_fast')}
-          >
-            <Text style={styles.evLevelEmoji}>⚡⚡⚡</Text>
-            <Text style={[styles.gradeToggleText, evLevel === 'dc_fast' && { color: THEME.background, fontWeight: '700' }]}>
-              DC Fast
-            </Text>
+            <Text style={[
+              styles.gradeToggleText,
+              gasGrade === 'premium' && styles.gradeToggleTextActive,
+            ]}>Premium</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -943,120 +726,55 @@ export default function Index() {
       )}
 
       {/* Content */}
-      {fuelCategory === 'ev' ? (
-        // ── EV branch ──
-        locationError ? (
-          <View style={styles.centerContent}>
-            <Ionicons name="location-outline" size={60} color={THEME.textSecondary} />
-            <Text style={styles.errorText}>{locationError}</Text>
-            <TouchableOpacity style={styles.retryButton} onPress={() => loadData()}>
-              <Text style={styles.retryButtonText}>Enable Location</Text>
-            </TouchableOpacity>
-          </View>
-        ) : evLoading ? (
-          <View style={styles.centerContent}>
-            <ActivityIndicator size="large" color={getEvLevelColor(evLevel)} />
-            <Text style={styles.loadingText}>Finding nearby EV stations…</Text>
-          </View>
-        ) : evError ? (
-          <View style={styles.centerContent}>
-            <Ionicons name="alert-circle-outline" size={60} color="#FF5722" />
-            <Text style={styles.errorText}>{evError}</Text>
-            <TouchableOpacity
-              style={[styles.retryButton, { backgroundColor: getEvLevelColor(evLevel) }]}
-              onPress={() => location && fetchEvStations(location, evLevel)}
-            >
-              <Text style={styles.retryButtonText}>Retry</Text>
-            </TouchableOpacity>
-          </View>
-        ) : evStations.length === 0 ? (
-          <View style={styles.centerContent}>
-            <Ionicons name="flash-outline" size={60} color={THEME.textSecondary} />
-            <Text style={styles.emptyText}>No EV stations found within 10 mi</Text>
-            <TouchableOpacity
-              style={[styles.retryButton, { backgroundColor: getEvLevelColor(evLevel) }]}
-              onPress={() => location && fetchEvStations(location, evLevel)}
-            >
-              <Text style={styles.retryButtonText}>Search Again</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <FlatList
-            data={evStations}
-            renderItem={renderEvStation}
-            keyExtractor={(item) => item.id.toString()}
-            contentContainerStyle={styles.listContainer}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                tintColor={getEvLevelColor(evLevel)}
-                colors={[getEvLevelColor(evLevel)]}
-              />
-            }
-            ListHeaderComponent={
-              <Text style={styles.listHeader}>
-                {evLevel === 'level1'
-                  ? 'Level 1 (120V) Charging Stations Nearby'
-                  : evLevel === 'level2'
-                  ? 'Level 2 (240V) Charging Stations Nearby'
-                  : 'DC Fast Charging Stations Nearby'}
-              </Text>
-            }
-          />
-        )
+      {loading ? (
+        <View style={styles.centerContent}>
+          <ActivityIndicator size="large" color={THEME.primaryTeal} />
+          <Text style={styles.loadingText}>Finding nearby stations...</Text>
+        </View>
+      ) : locationError ? (
+        <View style={styles.centerContent}>
+          <Ionicons name="location-outline" size={60} color={THEME.textSecondary} />
+          <Text style={styles.errorText}>{locationError}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={() => loadData()}>
+            <Text style={styles.retryButtonText}>Enable Location</Text>
+          </TouchableOpacity>
+        </View>
+      ) : error ? (
+        <View style={styles.centerContent}>
+          <Ionicons name="alert-circle-outline" size={60} color="#FF5722" />
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={() => loadData()}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      ) : stations.length === 0 ? (
+        <View style={styles.centerContent}>
+          <Ionicons name="car-outline" size={60} color={THEME.textSecondary} />
+          <Text style={styles.emptyText}>No gas stations found nearby</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={() => loadData()}>
+            <Text style={styles.retryButtonText}>Search Again</Text>
+          </TouchableOpacity>
+        </View>
       ) : (
-        // ── Gas / Diesel branch ──
-        loading ? (
-          <View style={styles.centerContent}>
-            <ActivityIndicator size="large" color={THEME.primaryTeal} />
-            <Text style={styles.loadingText}>Finding nearby stations...</Text>
-          </View>
-        ) : locationError ? (
-          <View style={styles.centerContent}>
-            <Ionicons name="location-outline" size={60} color={THEME.textSecondary} />
-            <Text style={styles.errorText}>{locationError}</Text>
-            <TouchableOpacity style={styles.retryButton} onPress={() => loadData()}>
-              <Text style={styles.retryButtonText}>Enable Location</Text>
-            </TouchableOpacity>
-          </View>
-        ) : error ? (
-          <View style={styles.centerContent}>
-            <Ionicons name="alert-circle-outline" size={60} color="#FF5722" />
-            <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity style={styles.retryButton} onPress={() => loadData()}>
-              <Text style={styles.retryButtonText}>Retry</Text>
-            </TouchableOpacity>
-          </View>
-        ) : stations.length === 0 ? (
-          <View style={styles.centerContent}>
-            <Ionicons name="car-outline" size={60} color={THEME.textSecondary} />
-            <Text style={styles.emptyText}>No gas stations found nearby</Text>
-            <TouchableOpacity style={styles.retryButton} onPress={() => loadData()}>
-              <Text style={styles.retryButtonText}>Search Again</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <FlatList
-            data={stations}
-            renderItem={renderStation}
-            keyExtractor={(item) => item.place_id}
-            contentContainerStyle={styles.listContainer}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                tintColor={THEME.primaryTeal}
-                colors={[THEME.primaryTeal]}
-              />
-            }
-            ListHeaderComponent={
-              <Text style={styles.listHeader}>
-                Top 10 Cheapest {fuelCategory === 'diesel' ? 'Diesel' : `${gasGrade.charAt(0).toUpperCase() + gasGrade.slice(1)} Gas`} Stations
-              </Text>
-            }
-          />
-        )
+        <FlatList
+          data={stations}
+          renderItem={renderStation}
+          keyExtractor={(item) => item.place_id}
+          contentContainerStyle={styles.listContainer}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={THEME.primaryTeal}
+              colors={[THEME.primaryTeal]}
+            />
+          }
+          ListHeaderComponent={
+            <Text style={styles.listHeader}>
+              Top 10 Cheapest {fuelCategory === 'diesel' ? 'Diesel' : `${gasGrade.charAt(0).toUpperCase() + gasGrade.slice(1)} Gas`} Stations
+            </Text>
+          }
+        />
       )}
     </SafeAreaView>
   );
@@ -1163,10 +881,6 @@ const styles = StyleSheet.create({
   },
   gradeToggleTextActive: {
     color: THEME.background,
-  },
-  evLevelEmoji: {
-    fontSize: 16,
-    marginBottom: 2,
   },
   locationBar: {
     flexDirection: 'row',
@@ -1388,12 +1102,10 @@ const styles = StyleSheet.create({
   },
   subscribeButton: {
     backgroundColor: THEME.primaryTeal,
-    paddingHorizontal: 24,
+    paddingHorizontal: 60,
     paddingVertical: 16,
     borderRadius: 30,
-    marginBottom: 10,
-    width: '100%',
-    alignItems: 'center',
+    marginBottom: 16,
   },
   subscribeButtonText: {
     fontSize: 18,
