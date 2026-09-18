@@ -1187,6 +1187,215 @@
       color: var(--text-muted);
       margin-top: 2px;
     }
+
+    /* ===== EV CHARGING STYLES ===== */
+    .ev-panel-inner {
+      flex: 1;
+      overflow-y: auto;
+      min-height: 0;
+      padding-bottom: 32px;
+    }
+
+    .ev-panel-inner::-webkit-scrollbar { width: 6px; }
+    .ev-panel-inner::-webkit-scrollbar-track { background: transparent; }
+    .ev-panel-inner::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    .ev-search-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 24px;
+      align-items: center;
+    }
+
+    .ev-search-row input {
+      flex: 1;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 16px;
+      color: var(--text-primary);
+      font-size: 14px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .ev-search-row input:focus { border-color: var(--accent); }
+    .ev-search-row input::placeholder { color: var(--text-muted); }
+
+    .ev-levels {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 20px;
+      margin-bottom: 28px;
+    }
+
+    .ev-level-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-light);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 1px 3px var(--shadow);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      position: relative;
+    }
+
+    .ev-level-card:hover {
+      box-shadow: 0 4px 12px var(--shadow-hover);
+      border-color: var(--accent);
+    }
+
+    .ev-level-card.selected {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(217,119,87,0.2);
+    }
+
+    .ev-level-icon {
+      font-size: 22px;
+      margin-bottom: 10px;
+    }
+
+    .ev-level-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+
+    .ev-level-subtitle {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--accent);
+      margin-bottom: 10px;
+    }
+
+    .ev-level-bullets {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .ev-level-bullets li {
+      font-size: 13px;
+      color: var(--text-secondary);
+      padding: 3px 0;
+      display: flex;
+      align-items: flex-start;
+      gap: 7px;
+    }
+
+    .ev-level-bullets li::before {
+      content: '·';
+      color: var(--accent);
+      font-size: 18px;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+
+    .ev-level-count {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      background: var(--bg-secondary);
+      border-radius: 10px;
+      padding: 3px 10px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-muted);
+    }
+
+    .ev-level-count.loaded {
+      background: rgba(217,119,87,0.1);
+      color: var(--accent);
+    }
+
+    .ev-stations-section {
+      display: none;
+    }
+
+    .ev-stations-section.visible {
+      display: block;
+    }
+
+    .ev-stations-header {
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-secondary);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .ev-station-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .ev-station-item {
+      background: var(--bg-card);
+      border: 1px solid var(--border-light);
+      border-radius: 10px;
+      padding: 14px 16px;
+      box-shadow: 0 1px 3px var(--shadow);
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .ev-station-name {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+
+    .ev-station-address {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .ev-station-ports {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--accent);
+      background: rgba(217,119,87,0.1);
+      padding: 4px 10px;
+      border-radius: 8px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .ev-loading {
+      text-align: center;
+      padding: 32px;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    .ev-error {
+      background: rgba(217,119,87,0.08);
+      border: 1px solid rgba(217,119,87,0.2);
+      border-radius: 8px;
+      padding: 14px 16px;
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: 16px;
+    }
+
+    .ev-none {
+      text-align: center;
+      padding: 24px;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
   </style>
 </head>
 <body>
@@ -1207,6 +1416,7 @@
       <div class="view-toggle" id="mainTabToggle">
         <button id="tasksTabBtn" class="active">Tasks</button>
         <button id="memoryTabBtn">Memory</button>
+        <button id="evTabBtn">EV Charging</button>
       </div>
       <div class="view-toggle" id="taskViewToggle">
         <button id="boardViewBtn" class="active">Board</button>
@@ -1241,6 +1451,64 @@
       <div class="memory-tabs" id="memoryTabsContainer"></div>
       <div class="memory-content-area">
         <div id="memoryContentContainer"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EV CHARGING TAB PANEL -->
+  <div class="tab-panel" id="evPanel">
+    <div class="ev-panel-inner">
+      <!-- Search row -->
+      <div class="ev-search-row">
+        <input type="text" id="evLocationInput" placeholder="Enter city, ZIP, or address to find nearby stations…" />
+        <button class="primary" id="evSearchBtn">Search</button>
+        <button id="evGeoBtn" title="Use my location">📍 Near Me</button>
+      </div>
+
+      <!-- 3 level cards -->
+      <div class="ev-levels">
+        <!-- Level 1 -->
+        <div class="ev-level-card" id="evCard1" data-level="1">
+          <div class="ev-level-count" id="evCount1">—</div>
+          <div class="ev-level-icon">⚡</div>
+          <div class="ev-level-title">Level 1 — "Regular"</div>
+          <div class="ev-level-subtitle">Slowest</div>
+          <ul class="ev-level-bullets">
+            <li>Standard home wall outlet (120V)</li>
+            <li>Like filling up with a garden hose</li>
+            <li>~3–5 miles of range per hour</li>
+          </ul>
+        </div>
+        <!-- Level 2 -->
+        <div class="ev-level-card" id="evCard2" data-level="2">
+          <div class="ev-level-count" id="evCount2">—</div>
+          <div class="ev-level-icon">⚡⚡</div>
+          <div class="ev-level-title">Level 2 — "Mid-Grade"</div>
+          <div class="ev-level-subtitle">Moderate</div>
+          <ul class="ev-level-bullets">
+            <li>Dedicated home charger or public station (240V)</li>
+            <li>Like a steady garden hose with good pressure</li>
+            <li>~10–30 miles of range per hour</li>
+          </ul>
+        </div>
+        <!-- DC Fast -->
+        <div class="ev-level-card" id="evCardDC" data-level="dc_fast">
+          <div class="ev-level-count" id="evCountDC">—</div>
+          <div class="ev-level-icon">⚡⚡⚡</div>
+          <div class="ev-level-title">DC Fast Charging — "Premium"</div>
+          <div class="ev-level-subtitle">Fastest</div>
+          <ul class="ev-level-bullets">
+            <li>High-powered public stations (DC power)</li>
+            <li>Like a fire hose — rapid fill-up</li>
+            <li>~100–200+ miles in 20–45 minutes</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Station results -->
+      <div class="ev-stations-section" id="evStationsSection">
+        <div class="ev-stations-header" id="evStationsHeader">Nearby Stations</div>
+        <div id="evStationsList"></div>
       </div>
     </div>
   </div>
@@ -1290,9 +1558,11 @@
 
       tasksTabBtn.classList.toggle('active', tab === 'tasks');
       memoryTabBtn.classList.toggle('active', tab === 'memory');
+      document.getElementById('evTabBtn').classList.toggle('active', tab === 'ev');
 
       tasksPanel.classList.toggle('active', tab === 'tasks');
       memoryPanel.classList.toggle('active', tab === 'memory');
+      document.getElementById('evPanel').classList.toggle('active', tab === 'ev');
 
       // Show/hide view toggle for tasks
       taskViewToggle.style.display = tab === 'tasks' ? 'flex' : 'none';
@@ -1305,13 +1575,16 @@
       // Update file path display
       if (tab === 'tasks') {
         filePathEl.textContent = taskFileHandle ? taskFileName : '';
-      } else {
+      } else if (tab === 'memory') {
         filePathEl.textContent = memoryDirHandle ? memoryDirHandle.name : '';
+      } else {
+        filePathEl.textContent = '';
       }
     }
 
     tasksTabBtn.addEventListener('click', () => switchMainTab('tasks'));
     memoryTabBtn.addEventListener('click', () => switchMainTab('memory'));
+    document.getElementById('evTabBtn').addEventListener('click', () => switchMainTab('ev'));
 
     // ============================================================
     // ===== TASKS FUNCTIONALITY =====
@@ -3093,6 +3366,166 @@
     window.openNewFileModal = openNewFileModal;
     window.openEditModal = openEditModal;
     window.filterMemoryDirectory = filterMemoryDirectory;
+
+    // ============================================================
+    // ===== EV CHARGING FUNCTIONALITY =====
+    // ============================================================
+
+    const NREL_API_KEY = '2BJabIEkxESZm1LZ7s9Z7rd8t5VWD2seqAdebHvM';
+    const NREL_BASE = 'https://developer.nrel.gov/api/alt-fuel-stations/v1.json';
+
+    let evCurrentLocation = null; // { lat, lng } or string
+    let evSelectedLevel = null;
+
+    const evCards = [
+      { id: 'evCard1', countId: 'evCount1', level: '1' },
+      { id: 'evCard2', countId: 'evCount2', level: '2' },
+      { id: 'evCardDC', countId: 'evCountDC', level: 'dc_fast' },
+    ];
+
+    const levelLabels = { '1': 'Level 1', '2': 'Level 2', 'dc_fast': 'DC Fast' };
+
+    function portCount(station, level) {
+      if (level === '1') return station.ev_level1_evse_num || 0;
+      if (level === '2') return station.ev_level2_evse_num || 0;
+      if (level === 'dc_fast') return station.ev_dc_fast_num || 0;
+      return 0;
+    }
+
+    async function fetchEvStations(locationParam, level) {
+      const params = new URLSearchParams({
+        api_key: NREL_API_KEY,
+        fuel_type: 'ELEC',
+        status: 'E',
+        limit: 20,
+      });
+
+      if (level === '1') params.set('ev_level1_evse_num', 'true');
+      else if (level === '2') params.set('ev_level2_evse_num', 'true');
+      else if (level === 'dc_fast') params.set('ev_dc_fast_num', 'true');
+
+      if (typeof locationParam === 'object') {
+        params.set('latitude', locationParam.lat);
+        params.set('longitude', locationParam.lng);
+        params.set('radius', '10');
+      } else {
+        params.set('location', locationParam);
+      }
+
+      const res = await fetch(`${NREL_BASE}?${params}`);
+      if (!res.ok) throw new Error(`API error ${res.status}`);
+      const data = await res.json();
+      return data.fuel_stations || [];
+    }
+
+    async function evSearch() {
+      const input = document.getElementById('evLocationInput').value.trim();
+      if (!input) { showStatus('Please enter a location first.'); return; }
+      evCurrentLocation = input;
+      await evLoadAllCounts();
+    }
+
+    async function evLoadAllCounts() {
+      if (!evCurrentLocation) return;
+
+      // Reset counts to loading state
+      evCards.forEach(({ countId }) => {
+        const el = document.getElementById(countId);
+        el.textContent = '…';
+        el.classList.remove('loaded');
+      });
+
+      // Fetch all 3 levels in parallel
+      const results = await Promise.allSettled(
+        evCards.map(({ level }) => fetchEvStations(evCurrentLocation, level))
+      );
+
+      evCards.forEach(({ countId, level }, i) => {
+        const el = document.getElementById(countId);
+        if (results[i].status === 'fulfilled') {
+          const count = results[i].value.length;
+          el.textContent = count + (count === 20 ? '+' : '') + ' stations';
+          el.classList.add('loaded');
+        } else {
+          el.textContent = 'error';
+        }
+      });
+
+      // If a level was already selected, refresh its results too
+      if (evSelectedLevel) {
+        evShowLevel(evSelectedLevel);
+      }
+    }
+
+    async function evShowLevel(level) {
+      evSelectedLevel = level;
+
+      // Highlight selected card
+      evCards.forEach(({ id }) => {
+        document.getElementById(id).classList.toggle('selected', id === `evCard${level === 'dc_fast' ? 'DC' : level}`);
+      });
+
+      const section = document.getElementById('evStationsSection');
+      const listEl = document.getElementById('evStationsList');
+      const headerEl = document.getElementById('evStationsHeader');
+
+      section.classList.add('visible');
+      headerEl.textContent = `${levelLabels[level]} Stations Nearby`;
+      listEl.innerHTML = '<div class="ev-loading">Loading stations…</div>';
+
+      if (!evCurrentLocation) {
+        listEl.innerHTML = '<div class="ev-error">Enter a location above and click Search first.</div>';
+        return;
+      }
+
+      try {
+        const stations = await fetchEvStations(evCurrentLocation, level);
+        if (!stations.length) {
+          listEl.innerHTML = '<div class="ev-none">No stations found nearby. Try a different location or radius.</div>';
+          return;
+        }
+
+        listEl.innerHTML = stations.map(s => {
+          const ports = portCount(s, level);
+          const portLabel = ports ? `${ports} port${ports !== 1 ? 's' : ''}` : 'Available';
+          return `
+            <div class="ev-station-item">
+              <div>
+                <div class="ev-station-name">${s.station_name}</div>
+                <div class="ev-station-address">${s.street_address}, ${s.city}, ${s.state} ${s.zip}</div>
+              </div>
+              <div class="ev-station-ports">${portLabel}</div>
+            </div>`;
+        }).join('');
+      } catch (err) {
+        listEl.innerHTML = `<div class="ev-error">Could not load stations: ${err.message}</div>`;
+      }
+    }
+
+    // Wire up level card clicks
+    evCards.forEach(({ id, level }) => {
+      document.getElementById(id).addEventListener('click', () => evShowLevel(level));
+    });
+
+    // Search button
+    document.getElementById('evSearchBtn').addEventListener('click', evSearch);
+    document.getElementById('evLocationInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') evSearch();
+    });
+
+    // Near Me button using browser geolocation
+    document.getElementById('evGeoBtn').addEventListener('click', () => {
+      if (!navigator.geolocation) { showStatus('Geolocation not supported.'); return; }
+      showStatus('Getting your location…');
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          evCurrentLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          document.getElementById('evLocationInput').value = `${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`;
+          evLoadAllCounts();
+        },
+        () => showStatus('Could not get location. Please enter it manually.')
+      );
+    });
   </script>
 </body>
 </html>
